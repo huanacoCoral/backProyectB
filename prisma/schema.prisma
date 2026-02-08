@@ -1,0 +1,430 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+// -------------------------
+// USUARIO / VOLUNTARIO
+// -------------------------
+model Usuario {
+  // Id del usuario coincide con el id_voluntario (uno a uno con Voluntario, creado aparte)
+  id_voluntario Int     @id
+  email         String  @unique
+  password      String
+
+  voluntario    Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+}
+
+model Voluntario {
+  id_voluntario Int @id @default(autoincrement())
+
+  // Relaciones con otras tablas
+  usuario                      Usuario?                      // 1:1 (puede existir Usuario)
+  emergencias                  Emergencia[]                  // 1:N
+  mantenimientos               Mantenimiento[]
+  ingresoInformesVehiculo     ingresoInformeVehiculo[]
+  informeIngresoMateriales     informeIngresoMaterial[]
+  informeIngresoProductos      informeIngresoProducto[]
+  informesEmergencia           informeEmergencia[]
+  maquinista                   Maquinista?
+  conducciones                 Maqui_condujo_vehi[]
+  recepcionesEmergencia        Vol_recepcion_emer[]
+  turnosTrayecto               TurnoTrayecto[]
+  cargosTrayecto               CargoTrayecto[]
+  rolesTrayecto                RolTrayecto[]
+}
+
+// -------------------------
+// EMERGENCIAS y TIPOS
+// -------------------------
+model Emergencia {
+  id_emergencia Int      @id @default(autoincrement())
+  fecha         DateTime
+  direccion     String
+  cel_ref       String
+  nombrePersona String
+  tipoRecepcion String
+  id_gravedad   Int
+  id_voluntario Int
+
+  gravedad   Gravedad   @relation(fields: [id_gravedad], references: [id_gravedad])
+  voluntario Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+
+  tiposEmergencia  Emer_tiene_TipoEmer[]
+  vehiculos        Vehi_participo_emer[]
+  materiales       Emergencia_utilizo_registroMaterial[]
+  productos        registroProducto[]
+  informes         informeEmergencia[]
+  recepciones      Vol_recepcion_emer[]
+}
+
+model TipoEmergencia {
+  id_tipoEmergencia Int @id @default(autoincrement())
+  nombre            String
+  codigo            String
+
+  emergencias Emer_tiene_TipoEmer[]
+}
+
+model Emer_tiene_TipoEmer {
+  id_emergencia     Int
+  id_tipoEmergencia Int
+
+  emergencia     Emergencia     @relation(fields: [id_emergencia], references: [id_emergencia])
+  tipoEmergencia TipoEmergencia @relation(fields: [id_tipoEmergencia], references: [id_tipoEmergencia])
+
+  @@id([id_emergencia, id_tipoEmergencia])
+}
+
+model Gravedad {
+  id_gravedad Int @id @default(autoincrement())
+  nombre      String
+
+  emergencias Emergencia[]
+}
+
+// -------------------------
+// VEHÍCULOS y LOTES
+// -------------------------
+model Vehiculo {
+  id_vehiculo          Int @id @default(autoincrement())
+  nombre               String
+  kilometrajeUtilizado Int
+
+  lotesVehiculo        loteVehiculo[]
+  mantenimientos       Mantenimiento[]
+  emergencias          Vehi_participo_emer[]
+  maquinistasCondujo   Maqui_condujo_vehi[]
+}
+
+model loteVehiculo {
+  id_loteVehiculo Int @id @default(autoincrement())
+  stock           Int
+  tipo            String
+  id_vehiculo     Int
+
+  vehiculo        Vehiculo @relation(fields: [id_vehiculo], references: [id_vehiculo])
+  // relación con ingresoInformeVehiculo a través de la tabla contenedora
+  contieneIngresos lotVehi_contiene_ingInfVehi[]
+  ingresos         ingresoInformeVehiculo[] @relation("loteVehiculo_ingresos")
+}
+
+model lotVehi_contiene_ingInfVehi {
+  id_loteVehiculo           Int
+  id_informeIngresoVehiculo Int
+
+  loteVehiculo        loteVehiculo          @relation(fields: [id_loteVehiculo], references: [id_loteVehiculo])
+  ingresoVehiculo     ingresoInformeVehiculo @relation(fields: [id_informeIngresoVehiculo], references: [id_ingresoInformeVehiculo])
+
+  @@id([id_loteVehiculo, id_informeIngresoVehiculo])
+}
+
+model ingresoInformeVehiculo {
+  id_ingresoInformeVehiculo Int @id @default(autoincrement())
+  tipo                      String
+  nombre                    String
+  marca                     String
+  modelo                    String
+  anioFabricacion           Int
+  numeroPlaca               String
+  numeroSerie               String
+  kilometrajeIngreso        Int
+  descripcion               String
+  intervaloTiempoRevision   String
+  registroDocumentacion     String
+
+  id_voluntario Int
+  voluntario    Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+
+  // campo opcional para relacionar directamente con un lote (si se necesita)
+  id_loteVehiculo Int? 
+  loteVehiculo    loteVehiculo? @relation("loteVehiculo_ingresos", fields: [id_loteVehiculo], references: [id_loteVehiculo])
+
+  lotesContenedor lotVehi_contiene_ingInfVehi[]
+}
+
+// -------------------------
+// MANTENIMIENTOS
+// -------------------------
+model Mantenimiento {
+  id_mantenimiento Int @id @default(autoincrement())
+  descripcion      String
+  fecha            DateTime
+  id_vehiculo      Int
+  id_voluntario    Int
+
+  vehiculo   Vehiculo   @relation(fields: [id_vehiculo], references: [id_vehiculo])
+  voluntario Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+}
+
+// -------------------------
+// RELACIONES VEHICULO-EMERGENCIA
+// -------------------------
+model Vehi_participo_emer {
+  id_vehiculo   Int
+  id_emergencia Int
+
+  vehiculo    Vehiculo   @relation(fields: [id_vehiculo], references: [id_vehiculo])
+  emergencia  Emergencia @relation(fields: [id_emergencia], references: [id_emergencia])
+
+  @@id([id_vehiculo, id_emergencia])
+}
+
+// -------------------------
+// VOLUNTARIO RECEPCIONÓ EMERGENCIA
+// -------------------------
+model Vol_recepcion_emer {
+  id_voluntario Int
+  id_emergencia Int
+
+  voluntario Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+  emergencia Emergencia @relation(fields: [id_emergencia], references: [id_emergencia])
+
+  @@id([id_voluntario, id_emergencia])
+}
+
+// -------------------------
+// MATERIAL y LOTES
+// -------------------------
+model registroMaterial {
+  id_registroMaterial Int @id @default(autoincrement())
+  nombre              String?
+
+  // relaciones
+  lotes               regisMate_tiene_loteMatel[]
+  emergenciasUso      Emergencia_utilizo_registroMaterial[]
+}
+
+model loteMaterial {
+  id_loteMaterial Int @id @default(autoincrement())
+  stock           Int
+  tipo            String
+
+  informes        informeIngresoMaterial[]
+  registros       regisMate_tiene_loteMatel[]
+  contieneInformes lotMater_contiene_infIngMater[]
+}
+
+model informeIngresoMaterial {
+  id_informeIngresoMaterial Int @id @default(autoincrement())
+  tipo             String
+  estado           String
+  marca            String
+  modelo           String
+  numSerie         String
+  fechaAdquisicion DateTime
+  capacidad        String
+  caracteristicas  String
+  historial        String
+  responsableEquipo String
+  cantidad         Int
+  cantidadUnidad   Int
+  unidadMedida     String
+  fechaLimiteUso   DateTime
+  intervaloTiempoRevision String
+
+  id_voluntario Int
+  voluntario    Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+
+  // relación opcional directa con lote
+  id_loteMaterial Int?
+  loteMaterial    loteMaterial? @relation(fields: [id_loteMaterial], references: [id_loteMaterial])
+
+  lotesContenedor lotMater_contiene_infIngMater[]
+}
+
+// tabla relacional emergencia - registroMaterial (uso en emergencia)
+model Emergencia_utilizo_registroMaterial {
+  id_emergencia       Int
+  id_registroMaterial Int
+
+  emergencia       Emergencia      @relation(fields: [id_emergencia], references: [id_emergencia])
+  registroMaterial registroMaterial @relation(fields: [id_registroMaterial], references: [id_registroMaterial])
+
+  @@id([id_emergencia, id_registroMaterial])
+}
+
+// tabla relacional loteMaterial - informeIngresoMaterial
+model lotMater_contiene_infIngMater {
+  id_loteMaterial           Int
+  id_informeIngresoMaterial Int
+
+  loteMaterial     loteMaterial       @relation(fields: [id_loteMaterial], references: [id_loteMaterial])
+  informeIngreso   informeIngresoMaterial @relation(fields: [id_informeIngresoMaterial], references: [id_informeIngresoMaterial])
+
+  @@id([id_loteMaterial, id_informeIngresoMaterial])
+}
+
+// tabla relacional registroMaterial - loteMaterial
+model regisMate_tiene_loteMatel {
+  id_registroMaterial Int
+  id_loteMaterial     Int
+
+  registroMaterial registroMaterial @relation(fields: [id_registroMaterial], references: [id_registroMaterial])
+  loteMaterial     loteMaterial     @relation(fields: [id_loteMaterial], references: [id_loteMaterial])
+
+  @@id([id_registroMaterial, id_loteMaterial])
+}
+
+// -------------------------
+// INFORME DE EMERGENCIA
+// -------------------------
+model informeEmergencia {
+  id_informeEmergencia Int @id @default(autoincrement())
+  descripcion          String
+  id_Emergencia        Int
+  id_voluntario        Int
+
+  emergencia Emergencia @relation(fields: [id_Emergencia], references: [id_emergencia])
+  voluntario Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+}
+
+// -------------------------
+// MAQUINISTA / CONDUCCIONES
+// -------------------------
+model Maquinista {
+  id_voluntario Int @id
+  tipoLicencia  String
+  fecha         DateTime
+
+  voluntario    Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+}
+
+model Maqui_condujo_vehi {
+  id_voluntario Int
+  id_vehiculo   Int
+
+  voluntario Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+  vehiculo   Vehiculo   @relation(fields: [id_vehiculo], references: [id_vehiculo])
+
+  @@id([id_voluntario, id_vehiculo])
+}
+
+// -------------------------
+// PRODUCTOS y LOTES
+// -------------------------
+model registroProducto {
+  id_registroProducto Int @id @default(autoincrement())
+  destino             String
+  unidad              String
+  cantidad            Int
+  id_emergencia       Int
+
+  emergencia Emergencia @relation(fields: [id_emergencia], references: [id_emergencia])
+  lotes     lotProduc_proviene_regisProd[]
+}
+
+model loteProducto {
+  id_loteProducto Int @id @default(autoincrement())
+  tipo            String
+  stock           Int
+
+  informes        informeIngresoProducto[]
+  registros       lotProduc_proviene_regisProd[]
+  contieneInformes lotProduc_tiene_infIngProduc[]
+}
+
+model lotProduc_proviene_regisProd {
+  id_loteProducto     Int
+  id_registroProducto Int
+
+  loteProducto     loteProducto    @relation(fields: [id_loteProducto], references: [id_loteProducto])
+  registroProducto registroProducto @relation(fields: [id_registroProducto], references: [id_registroProducto])
+
+  @@id([id_loteProducto, id_registroProducto])
+}
+
+model informeIngresoProducto {
+  id_informeIngresoProducto Int @id @default(autoincrement())
+  nombre          String
+  cantidad        Int
+  cantidadUnidad  Int
+  unidadMedida    String
+  marca           String
+  estado          String
+  fechaCreacion   DateTime
+  fechaCaducidad  DateTime
+  registroMantenimiento String
+  fechaAdquisicion DateTime
+
+  id_voluntario Int
+  voluntario    Voluntario @relation(fields: [id_voluntario], references: [id_voluntario])
+
+  // relación opcional con loteProducto
+  id_loteProducto Int?
+  loteProducto    loteProducto? @relation(fields: [id_loteProducto], references: [id_loteProducto])
+
+  lotesContenedor lotProduc_tiene_infIngProduc[]
+}
+
+model lotProduc_tiene_infIngProduc {
+  id_loteProducto           Int
+  id_informeIngresoProducto Int
+
+  loteProducto   loteProducto      @relation(fields: [id_loteProducto], references: [id_loteProducto])
+  informeIngreso informeIngresoProducto @relation(fields: [id_informeIngresoProducto], references: [id_informeIngresoProducto])
+
+  @@id([id_loteProducto, id_informeIngresoProducto])
+}
+
+// -------------------------
+// TURNOS, CARGOS, ROLES y TRAYECTOS
+// -------------------------
+model Turno {
+  id_turno Int @id @default(autoincrement())
+  nombre   String
+
+  trayectos TurnoTrayecto[]
+}
+
+model Cargo {
+  id_cargo Int @id @default(autoincrement())
+  nombre   String
+
+  trayectos CargoTrayecto[]
+}
+
+model Rol {
+  id_rol Int @id @default(autoincrement())
+  nombre  String
+
+  trayectos RolTrayecto[]
+}
+
+model TurnoTrayecto {
+  id_turnoTrayecto Int @id @default(autoincrement())
+  fecha            DateTime
+  id_turno         Int
+  d_voluntario     Int
+
+  turno      Turno      @relation(fields: [id_turno], references: [id_turno])
+  voluntario Voluntario @relation(fields: [d_voluntario], references: [id_voluntario])
+}
+
+model CargoTrayecto {
+  id_cargoTrayecto Int @id @default(autoincrement())
+  fecha            DateTime
+  id_cargo         Int
+  d_voluntario     Int
+
+  cargo      Cargo      @relation(fields: [id_cargo], references: [id_cargo])
+  voluntario Voluntario @relation(fields: [d_voluntario], references: [id_voluntario])
+}
+
+model RolTrayecto {
+  id_rolTrayecto Int @id @default(autoincrement())
+  fecha          DateTime
+  id_rol         Int
+  d_voluntario   Int
+
+  rol        Rol        @relation(fields: [id_rol], references: [id_rol])
+  voluntario Voluntario @relation(fields: [d_voluntario], references: [id_voluntario])
+}
