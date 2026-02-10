@@ -64,6 +64,8 @@ export class AuthService {
 
     }
     async logIn(email: string, password: string) {
+        console.log("entramos a login");
+        
         try {
             // buscar si esque existe
             const user = await this.prismaService.usuario.findUnique({
