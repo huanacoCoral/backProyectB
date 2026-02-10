@@ -18,7 +18,7 @@ export class AuthController {
     }
     @Get('listar')
     getUsers() {
-            return this.authService.getListar();
+            return this.authService.listarVoluntarios();
     }
     /// vborrar lo de arriba 
     @Post('sign-up') //para crear 
@@ -30,12 +30,11 @@ export class AuthController {
         //
     }
     
-
-    /*@Post('log-in')
+    @Post('log-in')
     logIn(@Body() user: UserDTOEnviando) {
         console.log('user login +++', { user });
         return this.authService.logIn(user.email, user.password);
-    }*/
+    }
   // @UseGuards(AuthGuard)//se supone que esto bloquea pero no funciona --funcion pero verificar 
     
 
